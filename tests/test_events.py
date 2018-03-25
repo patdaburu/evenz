@@ -4,44 +4,56 @@
 # Created by pat on 3/25/18
 
 import unittest
-from evenz.events import Event, event, observable
-
+from evenz.events import observable, event
 
 @observable
-class TestClass1(object):
+class Dog(object):
     __test__ = False
+    """
+    This is a dog that can bark.  We can also listen for a 'barked' event.
+
+    """
+    def bark(self, count: int):
+        """
+        Call this method to make the dog bark.
+
+        :param count: How many times will the dog bark?
+        """
+        for i in range(0, count):
+            print('Woof!')
+        self.barked(count)
 
     @event
-    def event1(self, s: str):
+    def barked(self, count: int):
         """
-        Describe what the event does.
+        This event is raised when the dog barks.
 
-        :param s: gimme a string
+        :param count: how many times did the dog bark?
         """
 
 
 class TestSuite(unittest.TestCase):
+    def test_arrange_act_assert(self):
+        # Create our observable dog.
+        dog = Dog()
 
-    def test_extend_subscribe_count(self):
-        print('\n' * 3)
-        tc1 = TestClass1()
-        #self.assertTrue(True)
-        x = tc1.event1
-        tc1.event1 += lambda s: print(s)
-        tc1.event1 += lambda s: print(len(s))
+        # Create a handler function for the dog's 'barked' event.
+        def on_bark(count: int):
+            for i in range(0, count):
+                print('Hush, puppy!')
 
-        tc1.event1('blahhh!!!')
-        tc1.event1('bork!!!')
+        # When the dog barks, we'll respond.
+        dog.barked += on_bark
 
-        def another(s: str):
-            print(f"I am another {s}!")
-        tc1.event1 += another
+        # Have the dog bark a few times.
+        dog.bark(5)
 
-        tc1.event1('omigorsh')
-        tc1.event1 -= another
-        tc1.event1('alacadala')
+        # At this point, we're fed up and no longer listening for barks.
+        dog.barked -= on_bark
 
-
+        # Now the dog's barks should go without a response.
+        print('OK.  We are no longer listening.')
+        dog.bark(5)
 
 
 if __name__ == '__main__':
