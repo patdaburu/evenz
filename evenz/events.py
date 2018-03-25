@@ -10,8 +10,15 @@ Say something descriptive about the 'events' module.
 """
 
 import inspect
-from typing import Any, Callable, Iterable, List, Tuple
+from typing import Any, Callable, Iterable, List, NamedTuple, Tuple
 from functools import wraps
+
+
+class Args(NamedTuple):
+    """
+    Extend this named tuple to provide easy-to-understand arguments for your events.
+    """
+    sender: Any  #: the originator of the event
 
 
 class Event(object):
@@ -24,16 +31,18 @@ class Event(object):
         :py:func:`event` decorator first.
     """
     def __init__(self, f: Callable):
-        self._f = f
-        # Grab a reference to this instance's __call__ override.
-        _call = self.__call__
+
 
         # Create a new call method that wraps the original function so we get its doc string
         # and argument list.
         @wraps(f)
-        def call(*args, **kwargs):
-            _call(*args, **kwargs)
-        self.__call__ = call
+        def trigger(*args, **kwargs):
+            self.__trigger__(*args, **kwargs)
+
+        self.__class__ = type(self.__class__.__name__, (self.__class__,), {})
+        self.__class__.__call__ = trigger
+
+        self._f = f
         # Create a list to hold the handlers.
         self._handlers = []
 
@@ -80,6 +89,9 @@ class Event(object):
         self._handlers.remove(handler)
 
     def __iadd__(self, other):
+        # Sanity check:  The 'other' parameter should be a handler function.
+        if not isinstance(other, Callable):
+            raise ValueError(f'{type(other)} is not callable.')
         # Append handler.
         self._handlers.append(other)
         return self
@@ -89,10 +101,26 @@ class Event(object):
         self._handlers.remove(other)
         return self
 
-    def __call__(self, *args, **kwargs):
+    def __and__(self, other):
+        a = set(self._handlers)
+        b = set(other)
+        ab = a & b
+        self._handlers = [h for h in self._handlers if h in ab]
+        return self
+
+    def __or__(self, other):
+        a = set(self._handlers)
+        b = set(other)
+        ab = a | b
+        self._handlers = [h for h in self._handlers if h in ab]
+        return self
+
+    def __trigger__(self, *args, **kwargs):
         # Just call all the handlers.
         for h in self._handlers:
-            h(*args, **kwargs)
+            # We don't want to pass this event ('self') to the handler, so we'll just take
+            # all the positional arguments to the right.
+            h(*args[1:], **kwargs)
 
 
 def observable(cls):
