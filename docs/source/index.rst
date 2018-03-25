@@ -56,13 +56,13 @@ For this simple example we'll create an observable object with just one event.
                 print('Woof!')
             self.barked(count)
 
-    @event
-    def barked(self, count: int):
-        """
-        This event is raised when the dog barks.
+        @event
+        def barked(self, count: int):
+            """
+            This event is raised when the dog barks.
 
-        :param count: how many times did the dog bark?
-        """
+            :param count: how many times did the dog bark?
+            """
 
 Handle Events
 -------------
