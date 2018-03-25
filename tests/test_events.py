@@ -13,7 +13,11 @@ class TestClass1(object):
 
     @event
     def event1(self, s: str):
-        pass
+        """
+        Describe what the event does.
+
+        :param s: gimme a string
+        """
 
 
 class TestSuite(unittest.TestCase):
@@ -36,6 +40,7 @@ class TestSuite(unittest.TestCase):
         tc1.event1('omigorsh')
         tc1.event1 -= another
         tc1.event1('alacadala')
+
 
 
 
