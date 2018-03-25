@@ -135,7 +135,7 @@ def event(f: Callable) -> Event:
     :param f: the function.
     :return: the event
 
-    .. sealso::
+    .. seealso::
 
         If you are decorating a method within a class, you'll need to use the
         :py:func:`observable` class decorator on the class as well.
