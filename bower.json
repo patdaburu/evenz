@@ -1,0 +1,9 @@
+{
+  "name": "evenz",
+  "authors": ["Pat Daburu <pat@daburu.net>"],
+  "description": "Simple event-driven python.",
+  "main": "index.js",
+  "license": "MIT",
+  "homepage": "",
+  "ignore": ["**/.*", "node_modules", "bower_components", "test", "tests"]
+}

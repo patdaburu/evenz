@@ -1,0 +1,3 @@
+name: evenz
+dependencies:
+        - python=3.6
