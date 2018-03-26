@@ -31,17 +31,11 @@ class Event(object):
         :py:func:`event` decorator first.
     """
     def __init__(self, f: Callable):
-
-
-        # Create a new call method that wraps the original function so we get its doc string
-        # and argument list.
-        @wraps(f)
-        def trigger(*args, **kwargs):
-            self.__trigger__(*args, **kwargs)
-
+        # Each instance needs to have its own class so that we can specify __call__ (which is
+        # only searched on the class).
         self.__class__ = type(self.__class__.__name__, (self.__class__,), {})
-        self.__class__.__call__ = trigger
-
+        self.__class__.__call__ = self.__trigger__
+        # Keep a reference to the original function.
         self._f = f
         # Create a list to hold the handlers.
         self._handlers = []
@@ -118,9 +112,7 @@ class Event(object):
     def __trigger__(self, *args, **kwargs):
         # Just call all the handlers.
         for h in self._handlers:
-            # We don't want to pass this event ('self') to the handler, so we'll just take
-            # all the positional arguments to the right.
-            h(*args[1:], **kwargs)
+            h(*args, **kwargs)
 
 
 def observable(cls):
@@ -138,18 +130,48 @@ def observable(cls):
     # For starters, we need the class' original __init__ method.
     cls_init = cls.__init__
 
+    # THIS IS WHERE TO START...
+    cls_events: List[Tuple[str, Event]] = [
+        cls_event for cls_event in inspect.getmembers(cls)
+        if isinstance(cls_event[1], Event)
+    ]
+    for cls_event in cls_events:
+
+        name, event_ = cls_event
+
+        def f(*args, **kwargs) -> Event:
+            return event_
+
+        setattr(f, '__doc__', event_.function.__doc__)
+        setattr(f, '__event_method__', True)
+        setattr(cls, name, f)
+
+        #event_prop = property(lambda self: event, None, None, event_.function.__doc__)
+        #setattr(cls, name, event_prop)
+        #event_.function.__event_method__ = True
+        #setattr(cls, name, event_.function)
+
+
+
+
     @wraps(cls.__init__)
     def init(self, *args, **kwargs):
         # Call the class' original __init__ method.
         cls_init(self, *args, **kwargs)
+        self.__class__ = type(self.__class__.__name__, (self.__class__,), {})
         # Retrieve all the methods marked as events.
-        event_members: List[Tuple[str, Event]] = [
+        event_members_: List[Tuple[str, Event]] = [
             member for member in inspect.getmembers(self)
-            if isinstance(member[1], Event)
+            #if isinstance(member[1], Event)
+            if hasattr(member[1], '__event_method__')
+            and member[1].__event_method__
         ]
-        for event_member in event_members:
-            e = Event(event_member[1].function)
-            self.__dict__[event_member[0]] = e
+        for event_member_ in event_members_:
+            name_, event_method = event_member_
+            #e = Event(event_method)
+            e = Event(event_method())
+            setattr(self, name_, e)
+
     # Replace the class' original __init__ method with our own.
     cls.__init__ = init
     # The caller gets back the original class.
@@ -172,3 +194,39 @@ def event(f: Callable) -> Event:
     e = Event(f)
     # That should be all we need to do.
     return e
+
+
+@observable
+class Dog(object):
+    """
+    This is a dog that can bark.  We can also listen for a 'barked' event.
+
+    """
+
+    def __init__(self, name: str):
+        """
+        Give the dog a name.
+        :param name:
+        """
+        self.name = name  #: this is the dog name
+
+    def bark(self, count: int):
+        """
+        Call this method to make the dog bark.
+
+        :param count: How many times will the dog bark?
+        """
+        self.barked(count)
+
+    @event
+    def barked(self, count: int):
+        """
+        This event is raised when the dog barks.
+
+        :param count: how many times did the dog bark?
+        """
+
+    @property
+    def blah(self):
+        "here is what I do"
+        return 1

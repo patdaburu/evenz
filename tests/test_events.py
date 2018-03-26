@@ -41,6 +41,7 @@ class TestSuite(unittest.TestCase):
         barks = 5
         # Create our observable dog.
         dog = Dog('Fido')
+
         # we're going to keep count of the number of times the
         bark_count = {'value': 0}
 
@@ -48,6 +49,8 @@ class TestSuite(unittest.TestCase):
         def on_bark(count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
+
+        x = dog.barked
         # When the dog barks, we'll respond.
         dog.barked += on_bark
         # Have the dog bark a few times.
