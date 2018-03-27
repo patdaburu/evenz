@@ -139,10 +139,15 @@ def observable(cls):
 
         name, event_ = cls_event
 
+        # https://docs.python.org/2/library/functions.html#compile
+        # ⚡ <- prepend doc?
+        @wraps(event_.function)
         def f(*args, **kwargs) -> Event:
             return event_
 
-        setattr(f, '__doc__', event_.function.__doc__)
+        f.__doc__ = f'⚡ :py:class:`evenz.events.Event`\n{f.__doc__}'
+
+        #setattr(f, '__doc__', event_.function.__doc__)
         setattr(f, '__event_method__', True)
         setattr(cls, name, f)
 
