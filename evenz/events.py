@@ -22,32 +22,9 @@ class Args(NamedTuple):
 
 
 class Event(object):
-    """
-    Use events to be notified when a something happens.
 
-    .. seealso::
-
-        While you can instantiate an instance of this class directly, check out the
-        :py:func:`event` decorator first.
-    """
-    def __init__(self, f: Callable):
-        # Each instance needs to have its own class so that we can specify __call__ (which is
-        # only searched on the class).
-        self.__class__ = type(self.__class__.__name__, (self.__class__,), {})
-        self.__class__.__call__ = self.__trigger__
-        # Keep a reference to the original function.
-        self._f = f
-        # Create a list to hold the handlers.
-        self._handlers = []
-
-    @property
-    def function(self) -> Callable:
-        """
-        Get the original function from which the event was created.
-
-        :return: the original function
-        """
-        return self._f
+    def __init__(self):
+        self._handlers: Iterable[Callable] = []
 
     @property
     def handlers(self) -> Iterable[Callable]:
@@ -68,7 +45,11 @@ class Event(object):
 
             You can also use the += operator.
         """
+        # Sanity check:  The handler parameter should be a handler function.
+        if not isinstance(handler, Callable):
+            raise ValueError(f'{type(other)} is not callable.')
         self._handlers.append(handler)
+        return self
 
     def unsubscribe(self, handler: Callable):
         """
@@ -81,19 +62,14 @@ class Event(object):
             You can also use the -= operator.
         """
         self._handlers.remove(handler)
+        return self
 
     def __iadd__(self, other):
-        # Sanity check:  The 'other' parameter should be a handler function.
-        if not isinstance(other, Callable):
-            raise ValueError(f'{type(other)} is not callable.')
-        # Append handler.
-        self._handlers.append(other)
-        return self
+        # Subscribe to the handler.
+        return self.subscribe(other)
 
     def __isub__(self, other):
-        # Remove the handler.
-        self._handlers.remove(other)
-        return self
+        return self.unsubscribe(other)
 
     def __and__(self, other):
         a = set(self._handlers)
@@ -109,7 +85,10 @@ class Event(object):
         self._handlers = [h for h in self._handlers if h in ab]
         return self
 
-    def __trigger__(self, *args, **kwargs):
+    def trigger(self, *args, **kwargs):
+        """
+        Trigger the event.
+        """
         # Just call all the handlers.
         for h in self._handlers:
             h(*args, **kwargs)
@@ -130,53 +109,52 @@ def observable(cls):
     # For starters, we need the class' original __init__ method.
     cls_init = cls.__init__
 
-    # THIS IS WHERE TO START...
-    cls_events: List[Tuple[str, Event]] = [
-        cls_event for cls_event in inspect.getmembers(cls)
-        if isinstance(cls_event[1], Event)
-    ]
-    for cls_event in cls_events:
+    # # THIS IS WHERE TO START...
+    # cls_events: List[Tuple[str, Event]] = [
+    #     cls_event for cls_event in inspect.getmembers(cls)
+    #     if isinstance(cls_event[1], Event)
+    # ]
+    # for cls_event in cls_events:
+    #
+    #     name, event_ = cls_event
+    #
+    #     # https://docs.python.org/2/library/functions.html#compile
+    #     # ⚡ <- prepend doc?
+    #     @wraps(event_.function)
+    #     def f(*args, **kwargs) -> Event:
+    #         return event_
+    #
+    #     f.__doc__ = f'⚡ :py:class:`evenz.events.Event`\n{f.__doc__}'
+    #
+    #     #setattr(f, '__doc__', event_.function.__doc__)
+    #     setattr(f, '__event_method__', True)
+    #     setattr(cls, name, f)
 
-        name, event_ = cls_event
-
-        # https://docs.python.org/2/library/functions.html#compile
-        # ⚡ <- prepend doc?
-        @wraps(event_.function)
-        def f(*args, **kwargs) -> Event:
-            return event_
-
-        f.__doc__ = f'⚡ :py:class:`evenz.events.Event`\n{f.__doc__}'
-
-        #setattr(f, '__doc__', event_.function.__doc__)
-        setattr(f, '__event_method__', True)
-        setattr(cls, name, f)
-
-        #event_prop = property(lambda self: event, None, None, event_.function.__doc__)
-        #setattr(cls, name, event_prop)
-        #event_.function.__event_method__ = True
-        #setattr(cls, name, event_.function)
-
-
-
+    import types
 
     @wraps(cls.__init__)
     def init(self, *args, **kwargs):
         # Call the class' original __init__ method.
         cls_init(self, *args, **kwargs)
-        self.__class__ = type(self.__class__.__name__, (self.__class__,), {})
         # Retrieve all the methods marked as events.
-        event_members_: List[Tuple[str, Event]] = [
+        event_members: List[Tuple[str, Event]] = [
             member for member in inspect.getmembers(self)
-            #if isinstance(member[1], Event)
-            if hasattr(member[1], '__event_method__')
-            and member[1].__event_method__
+            if hasattr(member[1], '__is_event__')
+            and member[1].__is_event__
         ]
-        for event_member_ in event_members_:
-            name_, event_method = event_member_
-            #e = Event(event_method)
-            e = Event(event_method())
-            setattr(self, name_, e)
+        for event_member in event_members:
+            # Get the attribute name and bound method.
+            name_, event_method = event_member
+            # Create a new 'event' function from the original function.
+            f = event(event_method.__func__.__func__)
+            m = types.MethodType(f, self)
 
+            def setattr_(self, name, value):
+                if name != 'event':
+                    m.__setattr__(name, value)
+            m.__dict__['__setattr__'] = setattr_
+            # Create a new bound method.
+            setattr(self, name_, m)
     # Replace the class' original __init__ method with our own.
     cls.__init__ = init
     # The caller gets back the original class.
@@ -195,43 +173,18 @@ def event(f: Callable) -> Event:
         If you are decorating a method within a class, you'll need to use the
         :py:func:`observable` class decorator on the class as well.
     """
-    # Create an event for the callable.
-    e = Event(f)
-    # That should be all we need to do.
-    return e
+    e = Event()
+
+    @wraps(f)
+    def _f(*args, **kwargs):
+        e.trigger(*args, **kwargs)
+
+    setattr(_f, 'event', e)
+    setattr(_f, 'subscribe', e.subscribe)
+    setattr(_f, 'unsubscribe', e.unsubscribe)
+    setattr(_f, '__is_event__', True)
+    setattr(_f, '__func__', f)
+
+    return _f
 
 
-@observable
-class Dog(object):
-    """
-    This is a dog that can bark.  We can also listen for a 'barked' event.
-
-    """
-
-    def __init__(self, name: str):
-        """
-        Give the dog a name.
-        :param name:
-        """
-        self.name = name  #: this is the dog name
-
-    def bark(self, count: int):
-        """
-        Call this method to make the dog bark.
-
-        :param count: How many times will the dog bark?
-        """
-        self.barked(count)
-
-    @event
-    def barked(self, count: int):
-        """
-        This event is raised when the dog barks.
-
-        :param count: how many times did the dog bark?
-        """
-
-    @property
-    def blah(self):
-        "here is what I do"
-        return 1

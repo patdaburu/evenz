@@ -46,18 +46,48 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(_: Dog, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
 
         x = dog.barked
+        r = hasattr(dog.barked, 'event')
+        h = dog.barked.event.handlers
         # When the dog barks, we'll respond.
-        dog.barked += on_bark
+        dog.barked.event += on_bark
+#        ev = dog.barked.event
+#        ev += on_bark
+#        dog.barked.subscribe(on_bark)
         # Have the dog bark a few times.
         dog.bark(barks)
 
         # At this point, we're fed up and no longer listening for barks.
-        dog.barked -= on_bark
+#        dog.barked -= on_bark
+        dog.barked.unsubscribe(on_bark)
+        # Now the dog's barks should go without a response.
+        dog.bark(barks)
+        self.assertEqual(barks, bark_count['value'])
+
+    def test_subUnsub_raise_count(self):
+        barks = 5
+        # Create our observable dog.
+        dog = Dog('Fido')
+
+        # we're going to keep count of the number of times the
+        bark_count = {'value': 0}
+
+        # Create a handler function for the dog's 'barked' event.
+        def on_bark(_: Dog, count: int):
+            for i in range(0, count):
+                bark_count['value'] += 1
+
+        # When the dog barks, we'll respond.
+        dog.barked.subscribe(on_bark)
+        # Have the dog bark a few times.
+        dog.bark(barks)
+
+        # At this point, we're fed up and no longer listening for barks.
+        dog.barked.unsubscribe(on_bark)
         # Now the dog's barks should go without a response.
         dog.bark(barks)
         self.assertEqual(barks, bark_count['value'])
@@ -72,21 +102,21 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(_: Dog, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
         # When the first dog barks, we'll respond.  (But not the second dog.)
-        dog1.barked += on_bark
+        dog1.barked.subscribe(on_bark)
         # Have the dogs bark a few times.
         dog1.bark(barks)
         dog2.bark(barks)
         # At this point, we're fed up and no longer listening for barks.
-        dog1.barked -= on_bark
+        dog1.barked.unsubscribe(on_bark)
         # Now the dog's barks should go without a response.
         dog1.bark(barks)
         self.assertEqual(barks, bark_count['value'])
 
-    def test_init2sub1_raise_count(self):
+    def test_init2sub2_raise_count(self):
         barks = 5
         # Create our observable dog.
         dog1 = Dog('Fido')
@@ -96,18 +126,18 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(_: Dog, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
         # When the first dog barks, we'll respond.  (But not the second dog.)
-        dog1.barked += on_bark
-        dog2.barked += on_bark
+        dog1.barked.subscribe(on_bark)
+        dog2.barked.subscribe(on_bark)
         # Have the dogs bark a few times.
         dog1.bark(barks)
         dog2.bark(barks)
         # At this point, we're fed up and no longer listening for barks.
-        dog1.barked -= on_bark
-        dog2.barked -= on_bark
+        dog1.barked.unsubscribe(on_bark)
+        dog2.barked.unsubscribe(on_bark)
         # Now the dog's barks should go without a response.
         dog1.bark(barks)
         dog2.bark(barks)
