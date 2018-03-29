@@ -41,6 +41,7 @@ class TestSuite(unittest.TestCase):
         barks = 5
         # Create our observable dog.
         dog = Dog('Fido')
+
         # we're going to keep count of the number of times the
         bark_count = {'value': 0}
 
@@ -48,6 +49,32 @@ class TestSuite(unittest.TestCase):
         def on_bark(count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
+
+        # When the dog barks, we'll respond.
+        dog.barked += on_bark
+        # Have the dog bark a few times.
+        dog.bark(barks)
+
+        # At this point, we're fed up and no longer listening for barks.
+#        dog.barked -= on_bark
+        dog.barked -= on_bark
+        # Now the dog's barks should go without a response.
+        dog.bark(barks)
+        self.assertEqual(barks, bark_count['value'])
+
+    def test_subUnsub_raise_count(self):
+        barks = 5
+        # Create our observable dog.
+        dog = Dog('Fido')
+
+        # we're going to keep count of the number of times the
+        bark_count = {'value': 0}
+
+        # Create a handler function for the dog's 'barked' event.
+        def on_bark(count: int):
+            for i in range(0, count):
+                bark_count['value'] += 1
+
         # When the dog barks, we'll respond.
         dog.barked += on_bark
         # Have the dog bark a few times.
@@ -83,7 +110,7 @@ class TestSuite(unittest.TestCase):
         dog1.bark(barks)
         self.assertEqual(barks, bark_count['value'])
 
-    def test_init2sub1_raise_count(self):
+    def test_init2sub2_raise_count(self):
         barks = 5
         # Create our observable dog.
         dog1 = Dog('Fido')

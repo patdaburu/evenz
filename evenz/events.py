@@ -11,7 +11,7 @@ Say something descriptive about the 'events' module.
 
 import inspect
 from typing import Any, Callable, Iterable, List, NamedTuple, Tuple
-from functools import wraps
+from functools import partial, wraps
 
 
 class Args(NamedTuple):
@@ -23,37 +23,15 @@ class Args(NamedTuple):
 
 class Event(object):
     """
-    Use events to be notified when a something happens.
-
-    .. seealso::
-
-        While you can instantiate an instance of this class directly, check out the
-        :py:func:`event` decorator first.
+    An event object wraps a function and notifies a set of handlers when the function is called.
     """
     def __init__(self, f: Callable):
-
-
-        # Create a new call method that wraps the original function so we get its doc string
-        # and argument list.
-        @wraps(f)
-        def trigger(*args, **kwargs):
-            self.__trigger__(*args, **kwargs)
-
-        self.__class__ = type(self.__class__.__name__, (self.__class__,), {})
-        self.__class__.__call__ = trigger
-
-        self._f = f
-        # Create a list to hold the handlers.
-        self._handlers = []
-
-    @property
-    def function(self) -> Callable:
         """
-        Get the original function from which the event was created.
 
-        :return: the original function
+        :param f:  the function that triggers the event
         """
-        return self._f
+        self._f: Callable = f
+        self._handlers: Iterable[Callable] = []
 
     @property
     def handlers(self) -> Iterable[Callable]:
@@ -74,7 +52,11 @@ class Event(object):
 
             You can also use the += operator.
         """
+        # Sanity check:  The handler parameter should be a handler function.
+        if not isinstance(handler, Callable):
+            raise ValueError(f'{type(other)} is not callable.')
         self._handlers.append(handler)
+        return self
 
     def unsubscribe(self, handler: Callable):
         """
@@ -87,19 +69,15 @@ class Event(object):
             You can also use the -= operator.
         """
         self._handlers.remove(handler)
+        return self
 
     def __iadd__(self, other):
-        # Sanity check:  The 'other' parameter should be a handler function.
-        if not isinstance(other, Callable):
-            raise ValueError(f'{type(other)} is not callable.')
-        # Append handler.
-        self._handlers.append(other)
-        return self
+        # Subscribe to the handler.
+        return self.subscribe(other)
 
     def __isub__(self, other):
-        # Remove the handler.
-        self._handlers.remove(other)
-        return self
+        # Unsubscribe from the handler.
+        return self.unsubscribe(other)
 
     def __and__(self, other):
         a = set(self._handlers)
@@ -115,12 +93,20 @@ class Event(object):
         self._handlers = [h for h in self._handlers if h in ab]
         return self
 
-    def __trigger__(self, *args, **kwargs):
+    def trigger(self, *args, **kwargs):
+        """
+        Trigger the event.
+        """
         # Just call all the handlers.
         for h in self._handlers:
-            # We don't want to pass this event ('self') to the handler, so we'll just take
-            # all the positional arguments to the right.
-            h(*args[1:], **kwargs)
+            h(*args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        # The Event is callable so that it can be called like a function.  When that happens
+        # it will first call the function for which it was created...
+        self._f(*args, **kwargs)
+        # ...then trigger all the handlers.
+        self.trigger(*args, **kwargs)
 
 
 def observable(cls):
@@ -145,11 +131,15 @@ def observable(cls):
         # Retrieve all the methods marked as events.
         event_members: List[Tuple[str, Event]] = [
             member for member in inspect.getmembers(self)
-            if isinstance(member[1], Event)
+            if hasattr(member[1], '__is_event__')
+            and member[1].__is_event__
         ]
         for event_member in event_members:
-            e = Event(event_member[1].function)
-            self.__dict__[event_member[0]] = e
+            # Get the attribute name and bound method.
+            name_, event_method = event_member
+            # Create a new event with a new function that passes this instance in as the
+            # first positional (i.e. the "self" parameter).
+            setattr(self, name_, Event(partial(event_method.__func__.__func__, self)))
     # Replace the class' original __init__ method with our own.
     cls.__init__ = init
     # The caller gets back the original class.
@@ -168,7 +158,50 @@ def event(f: Callable) -> Event:
         If you are decorating a method within a class, you'll need to use the
         :py:func:`observable` class decorator on the class as well.
     """
-    # Create an event for the callable.
-    e = Event(f)
-    # That should be all we need to do.
-    return e
+    # Create an event object to wrap the function.
+    e = Event(f=f)
+
+    @wraps(f)
+    def _f(*args, **kwargs):
+        e.trigger(*args, **kwargs)
+    # Inject some extra doc stuff into the docstring.
+    _f.__doc__ = f'⚡ :py:class:`evenz.events.Event`\n{f.__doc__}'
+    # Supply the function with some meta information. (This will mostly be used by the
+    # @observable decorator.)
+    setattr(_f, 'event', e)
+    setattr(_f, '__is_event__', True)
+    setattr(_f, '__func__', f)
+    # Return the new function.
+    return _f
+
+
+@observable
+class Dog(object):
+    __test__ = False
+    """
+    This is a sample class that uses events.  It represents a dog that can bark.  Subscribe to
+    the `barked` event to know when it does. 
+    """
+
+    def __init__(self, name: str):
+        """
+
+        :param name: the dog's name
+        """
+        self.name = name
+
+    def bark(self, count: int):
+        """
+        Call this method to make the dog bark.
+
+        :param count: How many times will the dog bark?
+        """
+        self.barked(count)
+
+    @event
+    def barked(self, count: int):
+        """
+        This event is raised when the dog barks.
+
+        :param count: how many times did the dog bark?
+        """
