@@ -186,8 +186,7 @@ def event(f: Callable) -> Event:
         # Construct some new documentation and append it to the module's documentation.
         doc_parts = [
             module_.__doc__,
-            f'⚡ { f.__name__ } :py:class:`evenz.events.Event`',
-            f.__doc__
+            f'⚡ :py:class:`evenz.events.Event` :py:func:`{ f.__name__ }`',
         ]
         doc_parts = filter(lambda p: p is not None, doc_parts)
         module_.__doc__ = '\n'.join(doc_parts)
