@@ -6,11 +6,12 @@
 .. currentmodule:: events
 .. moduleauthor:: Pat Daburu <pat@daburu.net>
 
-Say something descriptive about the 'events' module.
+Import this module to make event handling a little simpler.
 """
 
 import inspect
 from typing import Any, Callable, Iterable, List, NamedTuple, Tuple
+import sys
 from functools import partial, wraps
 
 
@@ -137,9 +138,15 @@ def observable(cls):
         for event_member in event_members:
             # Get the attribute name and bound method.
             name_, event_method = event_member
-            # Create a new event with a new function that passes this instance in as the
-            # first positional (i.e. the "self" parameter).
-            setattr(self, name_, Event(partial(event_method.__func__.__func__, self)))
+            # If the method we found is an bound method...
+            if event_method.__self__ is not None:
+                # ...create a new event with a new function that passes this instance in as the
+                # first positional (i.e. the "self" parameter).
+                setattr(self, name_, Event(partial(event_method.__func__.__func__, self)))
+            else:
+                # Otherwise, we don't need to supply the 'self' parameter to the function wrapped
+                # by the Event object.
+                setattr(self, name_, Event(event_method.__func__.__func__))
     # Replace the class' original __init__ method with our own.
     cls.__init__ = init
     # The caller gets back the original class.
@@ -171,6 +178,20 @@ def event(f: Callable) -> Event:
     setattr(_f, 'event', e)
     setattr(_f, '__is_event__', True)
     setattr(_f, '__func__', f)
+
+    # If the function is defined directly within a module...
+    if f in [_ for _ in inspect.getmembers(f.__module__, inspect.isfunction)]:
+        # ...go get the module.
+        module_ = sys.modules[f.__module__]
+        # Construct some new documentation and append it to the module's documentation.
+        doc_parts = [
+            module_.__doc__,
+            f'⚡ { f.__name__ } :py:class:`evenz.events.Event`',
+            f.__doc__
+        ]
+        doc_parts = filter(lambda p: p is not None, doc_parts)
+        module_.__doc__ = '\n'.join(doc_parts)
+
     # Return the new function.
     return _f
 
