@@ -26,13 +26,15 @@ class Event(object):
     """
     An event object wraps a function and notifies a set of handlers when the function is called.
     """
-    def __init__(self, f: Callable):
+    def __init__(self, f: Callable, sender: Any = None):
         """
 
         :param f:  the function that triggers the event
+        :param sender: the sender of the event
         """
         self._f: Callable = f
-        self._handlers: Iterable[Callable] = []
+        self._handlers: List[Callable] = []
+        self._sender = sender
 
     @property
     def handlers(self) -> Iterable[Callable]:
@@ -55,7 +57,7 @@ class Event(object):
         """
         # Sanity check:  The handler parameter should be a handler function.
         if not isinstance(handler, Callable):
-            raise ValueError(f'{type(other)} is not callable.')
+            raise ValueError(f'{type(handler)} is not callable.')
         self._handlers.append(handler)
         return self
 
@@ -100,11 +102,15 @@ class Event(object):
         """
         # Just call all the handlers.
         for h in self._handlers:
-            h(*args, **kwargs)
+            if self._sender is not None:
+                h(self._sender, *args, **kwargs)
+            else:
+                h(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
-        # The Event is callable so that it can be called like a function.  When that happens
-        # it will first call the function for which it was created...
+        # The `Event` is callable so that it can be called like a function.
+        # When that happens it will first call the function for which it was
+        # created...
         self._f(*args, **kwargs)
         # ...then trigger all the handlers.
         self.trigger(*args, **kwargs)
@@ -140,9 +146,17 @@ def observable(cls):
             name_, event_method = event_member
             # If the method we found is an bound method...
             if event_method.__self__ is not None:
-                # ...create a new event with a new function that passes this instance in as the
-                # first positional (i.e. the "self" parameter).
-                setattr(self, name_, Event(partial(event_method.__func__.__func__, self)))
+                # ...create a new event with a new function that passes this
+                # instance in as the first positional (i.e. the "self"
+                # parameter).
+                setattr(
+                    self,
+                    name_,
+                    Event(
+                        f=partial(event_method.__func__.__func__, self),
+                        sender=self
+                    )
+                )
             else:
                 # Otherwise, we don't need to supply the 'self' parameter to the function wrapped
                 # by the Event object.
