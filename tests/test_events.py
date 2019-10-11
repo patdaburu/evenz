@@ -46,7 +46,7 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(sender, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
 
@@ -71,7 +71,7 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(sender, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
 
@@ -96,7 +96,7 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(sender, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
         # When the first dog barks, we'll respond.  (But not the second dog.)
@@ -120,7 +120,7 @@ class TestSuite(unittest.TestCase):
         bark_count = {'value': 0}
 
         # Create a handler function for the dog's 'barked' event.
-        def on_bark(count: int):
+        def on_bark(sender, count: int):
             for i in range(0, count):
                 bark_count['value'] += 1
         # When the first dog barks, we'll respond.  (But not the second dog.)

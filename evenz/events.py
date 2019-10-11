@@ -144,7 +144,7 @@ def observable(cls):
         for event_member in event_members:
             # Get the attribute name and bound method.
             name_, event_method = event_member
-            # If the method we found is an bound method...
+            # If the method we found is a bound method...
             if event_method.__self__ is not None:
                 # ...create a new event with a new function that passes this
                 # instance in as the first positional (i.e. the "self"
@@ -158,9 +158,16 @@ def observable(cls):
                     )
                 )
             else:
-                # Otherwise, we don't need to supply the 'self' parameter to the function wrapped
-                # by the Event object.
-                setattr(self, name_, Event(event_method.__func__.__func__))
+                # Otherwise, we don't need to supply the 'self' parameter to
+                # the function wrapped by the Event object.
+                setattr(
+                    self,
+                    name_,
+                    Event(
+                        f=event_method.__func__.__func__,
+                        sender=cls
+                    )
+                )
     # Replace the class' original __init__ method with our own.
     cls.__init__ = init
     # The caller gets back the original class.
@@ -187,8 +194,8 @@ def event(f: Callable) -> Event:
         e.trigger(*args, **kwargs)
     # Inject some extra doc stuff into the docstring.
     _f.__doc__ = f'⚡ :py:class:`evenz.events.Event`\n{f.__doc__}'
-    # Supply the function with some meta information. (This will mostly be used by the
-    # @observable decorator.)
+    # Supply the function with some meta information. (This will mostly be used
+    # by the @observable decorator.)
     setattr(_f, 'event', e)
     setattr(_f, '__is_event__', True)
     setattr(_f, '__func__', f)
@@ -197,7 +204,8 @@ def event(f: Callable) -> Event:
     if f in [_ for _ in inspect.getmembers(f.__module__, inspect.isfunction)]:
         # ...go get the module.
         module_ = sys.modules[f.__module__]
-        # Construct some new documentation and append it to the module's documentation.
+        # Construct some new documentation and append it to the module's
+        # documentation.
         doc_parts = [
             module_.__doc__,
             f'⚡ :py:class:`evenz.events.Event` :py:func:`{ f.__name__ }`',
@@ -209,33 +217,33 @@ def event(f: Callable) -> Event:
     return _f
 
 
-@observable
-class Dog(object):
-    __test__ = False
-    """
-    This is a sample class that uses events.  It represents a dog that can bark.  Subscribe to
-    the `barked` event to know when it does. 
-    """
-
-    def __init__(self, name: str):
-        """
-
-        :param name: the dog's name
-        """
-        self.name = name
-
-    def bark(self, count: int):
-        """
-        Call this method to make the dog bark.
-
-        :param count: How many times will the dog bark?
-        """
-        self.barked(count)
-
-    @event
-    def barked(self, count: int):
-        """
-        This event is raised when the dog barks.
-
-        :param count: how many times did the dog bark?
-        """
+# @observable
+# class Dog(object):
+#     __test__ = False
+#     """
+#     This is a sample class that uses events.  It represents a dog that can bark.  Subscribe to
+#     the `barked` event to know when it does.
+#     """
+#
+#     def __init__(self, name: str):
+#         """
+#
+#         :param name: the dog's name
+#         """
+#         self.name = name
+#
+#     def bark(self, count: int):
+#         """
+#         Call this method to make the dog bark.
+#
+#         :param count: How many times will the dog bark?
+#         """
+#         self.barked(count)
+#
+#     @event
+#     def barked(self, count: int):
+#         """
+#         This event is raised when the dog barks.
+#
+#         :param count: how many times did the dog bark?
+#         """
