@@ -6,11 +6,12 @@
 .. currentmodule:: events
 .. moduleauthor:: Pat Daburu <pat@daburu.net>
 
-Say something descriptive about the 'events' module.
+Import this module to make event handling a little simpler.
 """
 
 import inspect
 from typing import Any, Callable, Iterable, List, NamedTuple, Tuple
+import sys
 from functools import partial, wraps
 
 
@@ -25,13 +26,15 @@ class Event(object):
     """
     An event object wraps a function and notifies a set of handlers when the function is called.
     """
-    def __init__(self, f: Callable):
+    def __init__(self, f: Callable, sender: Any = None):
         """
 
         :param f:  the function that triggers the event
+        :param sender: the sender of the event
         """
         self._f: Callable = f
-        self._handlers: Iterable[Callable] = []
+        self._handlers: List[Callable] = []
+        self._sender = sender
 
     @property
     def handlers(self) -> Iterable[Callable]:
@@ -54,7 +57,7 @@ class Event(object):
         """
         # Sanity check:  The handler parameter should be a handler function.
         if not isinstance(handler, Callable):
-            raise ValueError(f'{type(other)} is not callable.')
+            raise ValueError(f'{type(handler)} is not callable.')
         self._handlers.append(handler)
         return self
 
@@ -99,11 +102,15 @@ class Event(object):
         """
         # Just call all the handlers.
         for h in self._handlers:
-            h(*args, **kwargs)
+            if self._sender is not None:
+                h(self._sender, *args, **kwargs)
+            else:
+                h(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
-        # The Event is callable so that it can be called like a function.  When that happens
-        # it will first call the function for which it was created...
+        # The `Event` is callable so that it can be called like a function.
+        # When that happens it will first call the function for which it was
+        # created...
         self._f(*args, **kwargs)
         # ...then trigger all the handlers.
         self.trigger(*args, **kwargs)
@@ -137,9 +144,30 @@ def observable(cls):
         for event_member in event_members:
             # Get the attribute name and bound method.
             name_, event_method = event_member
-            # Create a new event with a new function that passes this instance in as the
-            # first positional (i.e. the "self" parameter).
-            setattr(self, name_, Event(partial(event_method.__func__.__func__, self)))
+            # If the method we found is a bound method...
+            if event_method.__self__ is not None:
+                # ...create a new event with a new function that passes this
+                # instance in as the first positional (i.e. the "self"
+                # parameter).
+                setattr(
+                    self,
+                    name_,
+                    Event(
+                        f=partial(event_method.__func__.__func__, self),
+                        sender=self
+                    )
+                )
+            else:
+                # Otherwise, we don't need to supply the 'self' parameter to
+                # the function wrapped by the Event object.
+                setattr(
+                    self,
+                    name_,
+                    Event(
+                        f=event_method.__func__.__func__,
+                        sender=cls
+                    )
+                )
     # Replace the class' original __init__ method with our own.
     cls.__init__ = init
     # The caller gets back the original class.
@@ -166,42 +194,56 @@ def event(f: Callable) -> Event:
         e.trigger(*args, **kwargs)
     # Inject some extra doc stuff into the docstring.
     _f.__doc__ = f'⚡ :py:class:`evenz.events.Event`\n{f.__doc__}'
-    # Supply the function with some meta information. (This will mostly be used by the
-    # @observable decorator.)
+    # Supply the function with some meta information. (This will mostly be used
+    # by the @observable decorator.)
     setattr(_f, 'event', e)
     setattr(_f, '__is_event__', True)
     setattr(_f, '__func__', f)
+
+    # If the function is defined directly within a module...
+    if f in [_ for _ in inspect.getmembers(f.__module__, inspect.isfunction)]:
+        # ...go get the module.
+        module_ = sys.modules[f.__module__]
+        # Construct some new documentation and append it to the module's
+        # documentation.
+        doc_parts = [
+            module_.__doc__,
+            f'⚡ :py:class:`evenz.events.Event` :py:func:`{ f.__name__ }`',
+        ]
+        doc_parts = filter(lambda p: p is not None, doc_parts)
+        module_.__doc__ = '\n'.join(doc_parts)
+
     # Return the new function.
     return _f
 
 
-@observable
-class Dog(object):
-    __test__ = False
-    """
-    This is a sample class that uses events.  It represents a dog that can bark.  Subscribe to
-    the `barked` event to know when it does. 
-    """
-
-    def __init__(self, name: str):
-        """
-
-        :param name: the dog's name
-        """
-        self.name = name
-
-    def bark(self, count: int):
-        """
-        Call this method to make the dog bark.
-
-        :param count: How many times will the dog bark?
-        """
-        self.barked(count)
-
-    @event
-    def barked(self, count: int):
-        """
-        This event is raised when the dog barks.
-
-        :param count: how many times did the dog bark?
-        """
+# @observable
+# class Dog(object):
+#     __test__ = False
+#     """
+#     This is a sample class that uses events.  It represents a dog that can bark.  Subscribe to
+#     the `barked` event to know when it does.
+#     """
+#
+#     def __init__(self, name: str):
+#         """
+#
+#         :param name: the dog's name
+#         """
+#         self.name = name
+#
+#     def bark(self, count: int):
+#         """
+#         Call this method to make the dog bark.
+#
+#         :param count: How many times will the dog bark?
+#         """
+#         self.barked(count)
+#
+#     @event
+#     def barked(self, count: int):
+#         """
+#         This event is raised when the dog barks.
+#
+#         :param count: how many times did the dog bark?
+#         """
