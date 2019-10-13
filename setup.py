@@ -51,10 +51,10 @@ setup(
         # Include dependencies here
         'click>=7.0,<8'
     ],
-    entry_points="""
-    [console_scripts]
-    evenz=evenz.cli:cli
-    """,
+    # entry_points="""
+    # [console_scripts]
+    # evenz=evenz.cli:cli
+    # """,
     python_requires=">=0.0.1",
     license='MIT',  # noqa
     author='Pat Daburu',
