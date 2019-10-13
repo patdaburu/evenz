@@ -3,7 +3,7 @@
 
 # Created by pat on 3/25/18
 """
-.. currentmodule:: events
+.. currentmodule:: evenz.events
 .. moduleauthor:: Pat Daburu <pat@daburu.net>
 
 Import this module to make event handling a little simpler.
@@ -17,14 +17,16 @@ from functools import partial, wraps
 
 class Args(NamedTuple):
     """
-    Extend this named tuple to provide easy-to-understand arguments for your events.
+    Extend this named tuple to provide easy-to-understand arguments for your
+    events.
     """
     sender: Any  #: the originator of the event
 
 
 class Event(object):
     """
-    An event object wraps a function and notifies a set of handlers when the function is called.
+    An event object wraps a function and notifies a set of handlers when the
+    function is called.
     """
     def __init__(self, f: Callable, sender: Any = None):
         """
@@ -125,14 +127,17 @@ def observable(cls):
 
     .. seealso::
 
-        If you are using this decorator, you probably also want to use :py:func:`event` on
-        some of the methods.
+        If you are using this decorator, you probably also want to use
+        :py:func:`event` on some of the methods.
     """
     # For starters, we need the class' original __init__ method.
     cls_init = cls.__init__
 
     @wraps(cls.__init__)
     def init(self, *args, **kwargs):
+        """
+        This is the replacement for the class' initializer.
+        """
         # Call the class' original __init__ method.
         cls_init(self, *args, **kwargs)
         # Retrieve all the methods marked as events.
@@ -215,35 +220,3 @@ def event(f: Callable) -> Event:
 
     # Return the new function.
     return _f
-
-
-# @observable
-# class Dog(object):
-#     __test__ = False
-#     """
-#     This is a sample class that uses events.  It represents a dog that can bark.  Subscribe to
-#     the `barked` event to know when it does.
-#     """
-#
-#     def __init__(self, name: str):
-#         """
-#
-#         :param name: the dog's name
-#         """
-#         self.name = name
-#
-#     def bark(self, count: int):
-#         """
-#         Call this method to make the dog bark.
-#
-#         :param count: How many times will the dog bark?
-#         """
-#         self.barked(count)
-#
-#     @event
-#     def barked(self, count: int):
-#         """
-#         This event is raised when the dog barks.
-#
-#         :param count: how many times did the dog bark?
-#         """

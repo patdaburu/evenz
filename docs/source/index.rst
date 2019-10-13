@@ -2,23 +2,19 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. image:: _static/images/logo.svg
-   :width: 150px
-   :alt: evenz
-   :align: right
-
 evenz
 =====
 
-Simple event-driven python.
+Simplify event-driven python!
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+   getting_started
    api
+   development
    requirements
-
 
 Introduction
 ============
@@ -37,11 +33,10 @@ For this simple example we'll create an observable object with just one event.
 
 .. code-block:: python
 
-    from evenz.events import observable, event
+    from evenz import observable, event
 
     @observable
     class Dog(object):
-        __test__ = False
         """
         This is a dog that can bark.  We can also listen for a 'barked' event.
 
@@ -75,7 +70,7 @@ Now let's respond to the observable object's event by subscribing handler method
     dog = Dog()
 
     # Create a handler function for the dog's 'barked' event.
-    def on_bark(count: int):
+    def on_bark(sender: Dog, count: int):
         for i in range(0, count):
             print('Hush, puppy!')
 
