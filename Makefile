@@ -1,31 +1,50 @@
 .DEFAULT_GOAL := build
-.PHONY: build publish pubtest docs venv conda
-PROJ_NAME = evenz
+.PHONY: build publish package coverage test lint docs venv
+PROJ_SLUG = evenz
+CLI_NAME = evenz
 PY_VERSION = 3.6
 
+
+
 build:
-	@echo No python build is defined.
+	pip install --editable .
+
+run:
+	$(CLI_NAME) run
+
+submit:
+	$(CLI_NAME) submit
 
 freeze:
 	pip freeze > requirements.txt
 
-test:
-	py.test --cov . tests/
+lint:
+	pylint $(PROJ_SLUG)
 
-coverage: test
-	mkdir -p docs/build/html
-	coverage html
+test: lint
+	py.test --cov-report term --cov=$(PROJ_SLUG) tests/
+
+quicktest:
+	py.test --cov-report term --cov=$(PROJ_SLUG) tests/
+
+coverage: lint
+	py.test --cov-report html --cov=$(PROJ_SLUG) tests/
 
 docs: coverage
 	mkdir -p docs/source/_static
 	mkdir -p docs/source/_templates
 	cd docs && $(MAKE) html
+	pandoc --from=markdown --to=rst --output=README.rst README.md
 
-pubtest: docs
+answers:
+	cd docs && $(MAKE) html
+	xdg-open docs/build/html/index.html
+
+package: clean docs
 	python setup.py sdist
 
-publish: clean docs
-	python setup.py sdist upload -r pypi
+publish: package
+	twine upload dist/*
 
 clean :
 	rm -rf dist \
@@ -34,29 +53,14 @@ clean :
 	coverage erase
 
 venv :
+
 	virtualenv --python python$(PY_VERSION) venv
-	@echo
-	@echo To activate the environment, use the following command:
-	@echo     source venv/bin/activate
 
 
-conda:
-	conda env create -f environment.yml
-	@echo
-	@echo To activate the environment, use the following command:
-	@echo     source activate $(PROJ_NAME)
-	@echo
-	@echo To remove this environment, use the following command:
-	@echo      conda remove --name $(PROJ_NAME) --all
-
-activate:
-	@echo Make cannot do this for you, but you can do one of the following...
-	@echo
-	@echo If you are using a local virtual environment:
-	@echo     source venv/bin/activate
-	@echo
-	@echo If your are using a conda virtual environment:
-	@echo     source activate $(PROJ_NAME)
 
 install:
 	pip install -r requirements.txt
+
+licenses:
+	pip-licenses --with-url --format=rst \
+	--ignore-packages $(shell cat .pip-license-ignore | awk '{$$1=$$1};1')
