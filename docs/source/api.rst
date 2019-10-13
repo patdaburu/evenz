@@ -6,7 +6,7 @@
 API Documentation
 =================
 
-.. automodule:: evenz
+.. automodule:: evenz.events
     :members:
     :undoc-members:
     :show-inheritance:
